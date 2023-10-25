@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router()
-const connection = require('../config/database')
+const connection = require('../config/database');
+const e = require('express');
 
 // CREATE PRODUCT
 router.post('/product', (req, res) => {
@@ -22,7 +23,7 @@ router.post('/product', (req, res) => {
         })
       }
       else {
-        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, req.session.userId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
+        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, req.session.userId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
           if (err) {
             res.status(400).json(err)
           }
@@ -43,7 +44,12 @@ router.get('/products', (req, res) => {
       res.status(500).json({ "isError": true, "error": err })
     }
     else {
-      res.status(200).json({ "isError": false, "data": result })
+      if (result.length > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
     }
   })
 })
@@ -57,7 +63,12 @@ router.get('/product/:productId', (req, res) => {
       res.status(500).json({ "isError": true, "error": err })
     }
     else {
-      res.status(200).json({ "isError": false, "data": result })
+      if (result.length > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
     }
   })
 })
@@ -73,7 +84,12 @@ router.patch('/product/:productId', (req, res) => {
         res.status(500).json({ "isError": true, "error": err })
       }
       else {
-        res.status(200).json({ "isError": false, "data": result })
+        if (result.affectedRows > 0) {
+          res.status(200).json({ "isError": false, "data": result })
+        }
+        else {
+          res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+        }
       }
     })
 })
@@ -81,6 +97,21 @@ router.patch('/product/:productId', (req, res) => {
 
 
 // DELETE PRODUCT
-// router.get
+router.delete('/product/:productId', (req, res) => {
+  const productId = req.params.productId
+  connection.execute('DELETE FROM products WHERE product_id = ? AND user_id = ? ', [productId, req.session.userId], (err, result) => {
+    if (err) {
+      res.status(500).json({ "isError": true, "error": err })
+    }
+    else {
+      if (result.affectedRows > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
+    }
+  })
+})
 
 module.exports = router

@@ -19,6 +19,7 @@ app.use(session({
 
 const authRoute = require('./src/routes/auth')
 const shopRoute = require('./src/routes/shop')
+const userRoute = require('./src/routes/user')
 
 app.use(cors())
 app.use(express.json())
@@ -32,6 +33,7 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoute)
 app.use('/api/shop', verifyUser, verifyShop, shopRoute)
+app.use('/api/user', verifyUser, userRoute)
 
 app.listen(PORT, () => {
   console.log(`listeing on port: ${PORT}`)

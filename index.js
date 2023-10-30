@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoute)
 app.use('/api/shop', verifyUser, verifyShop, shopRoute)
-app.use('/api/user', verifyUser, userRoute)
+app.use('/api/user', userRoute)
 
 app.listen(PORT, () => {
   console.log(`listeing on port: ${PORT}`)

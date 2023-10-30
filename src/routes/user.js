@@ -42,8 +42,10 @@ router.get('/product/:productId/:userId', (req, res) => {
 
 
 // GET CART
-router.get('/carts', (req, res) => {
-  connection.execute('SELECT cart.*, products.product_name, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.user_id = ?', [req.session.userId], (err, result) => {
+router.get('/carts/:userId', (req, res) => {
+  const userId = req.params.userId
+  console.log(userId)
+  connection.execute('SELECT cart.*, products.product_name, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.user_id = ? ORDER BY shop_id', [userId], (err, result) => {
     if (err) {
       res.status(500).json(err)
     }
@@ -72,8 +74,7 @@ router.get('/cart/:cartId', (req, res) => {
 
 // STORE TO CART
 router.post('/cart', (req, res) => {
-  const { productId, userId, quantity, price } = req.body
-
+  const { productId, shopId, userId, quantity, price } = req.body
   connection.execute('SELECT cart_id FROM cart WHERE product_id = ? AND user_id = ?', [productId, userId], (err, result) => {
     if (err) {
       return res.status(500).json(err)
@@ -83,6 +84,7 @@ router.post('/cart', (req, res) => {
         console.log(result)
         connection.execute('UPDATE cart SET cart_quantity = ?, cart_total_price = ? WHERE cart_id = ?', [quantity, quantity * price, result[0].cart_id], (errUpdate, resultUpdate) => {
           if (errUpdate) {
+
             return res.status(500).json(errUpdate)
           }
           else {
@@ -91,7 +93,7 @@ router.post('/cart', (req, res) => {
         })
       }
       else {
-        connection.execute('INSERT INTO cart (product_id, user_id, cart_quantity, cart_total_price) VALUES (?, ?, ?, ?)', [productId, userId, quantity, quantity * price], (errInsert, resultInsert) => {
+        connection.execute('INSERT INTO cart (product_id, user_id, shop_id, cart_quantity, cart_total_price) VALUES (?, ?, ?, ?, ?)', [productId, userId, shopId, quantity, quantity * price], (errInsert, resultInsert) => {
           if (errInsert) {
             return res.status(500).json(errInsert)
           }
@@ -140,16 +142,17 @@ router.patch('/cart/:cartId', (req, res) => {
 
 
 // CHECKOUT AND SEND EMAIL
-router.get('/checkout/:shopId', (req, res) => {
+router.post('/checkout/:shopId/:userId', (req, res) => {
   const shopId = req.params.shopId
+  const userId = req.params.userId
   const { paymentMethod } = req.body
-  connection.execute('SELECT cart.*, products.product_stock, product_sold FROM cart JOIN products ON cart.shop_id = products.user_id AND cart.product_id = products.product_id WHERE cart.user_id = ? AND cart.shop_id =?', [req.session.userId, shopId], (errCart, resultCart) => {
+  connection.execute('SELECT cart.*, products.product_stock, product_sold FROM cart JOIN products ON cart.shop_id = products.user_id AND cart.product_id = products.product_id WHERE cart.user_id = ? AND cart.shop_id =?', [userId, shopId], (errCart, resultCart) => {
     if (errCart) {
       res.status(500).json(errCart)
     }
     else {
       connection.execute('INSERT INTO transaction (user_id, payment_method) VALUES (?, ?)',
-        [req.session.userId, paymentMethod],
+        [userId, paymentMethod],
         (errTransaction, resultTransaction) => {
           if (errTransaction) {
             res.status(500).json(errTransaction)
@@ -169,7 +172,7 @@ router.get('/checkout/:shopId', (req, res) => {
               })
             }
 
-            connection.execute('DELETE FROM cart WHERE cart.user_id = ? AND cart.shop_id =?', [req.session.userId, shopId], (errDeleteCart, resultDeleteCart) => {
+            connection.execute('DELETE FROM cart WHERE cart.user_id = ? AND cart.shop_id =?', [userId, shopId], (errDeleteCart, resultDeleteCart) => {
               if (errDeleteCart) {
                 res.status(500).json(errDeleteCart)
               }

@@ -61,7 +61,7 @@ router.post('/register/:role', (req, res) => {
 
 
 // LOGIN
-router.get('/login', (req, res) => {
+router.post('/login', (req, res) => {
   const { email, password } = req.body
 
   // CHECKING THE EMAIL FORMAT IS VALID 
@@ -88,6 +88,7 @@ router.get('/login', (req, res) => {
               "id_user": resultEmail[0].id_user,
               "email": resultEmail[0].user_email,
               "name": resultEmail[0].user_name,
+              "role": resultEmail[0].user_role,
             }
           ])
         }

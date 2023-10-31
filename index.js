@@ -32,7 +32,7 @@ app.use((req, res, next) => {
 })
 
 app.use('/api/auth', authRoute)
-app.use('/api/shop', verifyUser, verifyShop, shopRoute)
+app.use('/api/shop', shopRoute)
 app.use('/api/user', userRoute)
 
 app.listen(PORT, () => {

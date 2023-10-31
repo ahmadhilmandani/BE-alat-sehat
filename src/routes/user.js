@@ -75,7 +75,7 @@ router.get('/cart/:cartId', (req, res) => {
 // STORE TO CART
 router.post('/cart', (req, res) => {
   const { productId, shopId, userId, quantity, price } = req.body
-  connection.execute('SELECT cart_id FROM cart WHERE product_id = ? AND user_id = ?', [productId, userId], (err, result) => {
+  connection.execute('SELECT cart_id FROM cart WHERE product_id = ? AND user_id = ? AND shop_id = ?', [productId, userId, shopId], (err, result) => {
     if (err) {
       return res.status(500).json(err)
     }

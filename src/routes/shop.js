@@ -5,15 +5,15 @@ const e = require('express');
 
 // CREATE PRODUCT
 router.post('/product', (req, res) => {
-  const { categoryId, name, price, thumbnail, description, stock } = req.body
+  const { categoryId, name, price, thumbnail, description, stock, shopId } = req.body
 
-  connection.execute('SELECT `product_id` FROM `products` WHERE `user_id` = ? ORDER BY `product_id` DESC LIMIT 1', [req.session.userId], (errSelectProductId, resultSelectProductId) => {
+  connection.execute('SELECT `product_id` FROM `products` WHERE `user_id` = ? ORDER BY `product_id` DESC LIMIT 1', [shopId], (errSelectProductId, resultSelectProductId) => {
     if (errSelectProductId) {
       res.status(400).json(errSelectProductId)
     }
     else {
       if (resultSelectProductId.length <= 0) {
-        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [1, req.session.userId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
+        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [1, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
           if (err) {
             res.status(400).json(err)
           }
@@ -23,7 +23,7 @@ router.post('/product', (req, res) => {
         })
       }
       else {
-        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, req.session.userId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
+        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
           if (err) {
             res.status(400).json(err)
           }
@@ -38,8 +38,9 @@ router.post('/product', (req, res) => {
 
 
 // GET ALL PRODUCT
-router.get('/products', (req, res) => {
-  connection.execute('SELECT products.product_id, products.product_name, products.product_price, products.product_stock, products.product_sold ,category.category_name FROM products INNER JOIN category ON products.category_id = category.category_id WHERE products.user_id = ?', [req.session.userId], (err, result) => {
+router.get('/products/:shopId', (req, res) => {
+  const shopId = req.params.shopId
+  connection.execute('SELECT products.product_thumbnail, products.product_id, products.product_name, products.product_price, products.product_stock, products.product_sold ,category.category_name FROM products INNER JOIN category ON products.category_id = category.category_id WHERE products.user_id = ?', [shopId], (err, result) => {
     if (err) {
       res.status(500).json({ "isError": true, "error": err })
     }

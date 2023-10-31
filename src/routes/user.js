@@ -60,7 +60,7 @@ router.get('/carts/:userId', (req, res) => {
 // GET DETAIL CART
 router.get('/cart/:cartId', (req, res) => {
   const cartId = req.params.cartId
-  connection.execute('SELECT cart.*, products.product_name, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.cart_id = ? ', [cartId], (err, result) => {
+  connection.execute('SELECT cart.*, products.product_name, products.product_price, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.cart_id = ? ', [cartId], (err, result) => {
     if (err) {
       res.status(500).json(err)
     }

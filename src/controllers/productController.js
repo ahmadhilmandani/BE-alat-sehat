@@ -1,148 +1,155 @@
-const express = require('express');
-const router = express.Router()
+
 const connection = require('../config/database');
 const ejs = require('ejs')
 const path = require('path')
 const pdf = require('html-pdf')
 const nodemailer = require('nodemailer')
 
-const dotenv = require('dotenv')
-dotenv.config()
 
+const createProduct = (req, res) => {
+  const { categoryId, name, price, thumbnail, description, stock, shopId } = req.body
 
-// GET ALL PRODUCTS
-router.get('/products', (req, res) => {
-  connection.execute('SELECT products.product_id, products.user_id, products.product_name, products.product_price, products.product_thumbnail, products.product_stock, users.user_name, city.city_name, category.category_name FROM products JOIN users ON products.user_id = users.id_user JOIN city ON users.city_id = city.city_id JOIN category ON products.category_id = category.category_id', (err, result) => {
-    if (err) {
-      res.status(400).json(err)
+  connection.execute('SELECT `product_id` FROM `products` WHERE `user_id` = ? ORDER BY `product_id` DESC LIMIT 1', [shopId], (errSelectProductId, resultSelectProductId) => {
+    if (errSelectProductId) {
+      res.status(400).json(errSelectProductId)
     }
     else {
-      res.status(200).json(result)
-    }
-  })
-})
-
-
-
-// GET DETAIL PRODUCT
-router.get('/product/:productId/:userId', (req, res) => {
-  const productId = req.params.productId
-  const userId = req.params.userId
-
-  connection.execute('SELECT products.*, users.user_name, city.city_name, category.category_name FROM products JOIN users ON products.user_id = users.id_user JOIN city ON users.city_id = city.city_id JOIN category ON products.category_id = category.category_id WHERE products.product_id = ? AND users.id_user = ?', [productId, userId], (err, result) => {
-    if (err) {
-      res.status(400).json(err)
-    }
-    else {
-      res.status(200).json(result)
-    }
-  })
-})
-
-
-
-// GET CART
-router.get('/carts/:userId', (req, res) => {
-  const userId = req.params.userId
-  console.log(userId)
-  connection.execute('SELECT cart.*, products.product_name, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.user_id = ? ORDER BY shop_id', [userId], (err, result) => {
-    if (err) {
-      res.status(500).json(err)
-    }
-    else {
-      res.status(200).json(result)
-    }
-  })
-})
-
-
-
-// GET DETAIL CART
-router.get('/cart/:cartId', (req, res) => {
-  const cartId = req.params.cartId
-  connection.execute('SELECT cart.*, products.product_name, products.product_price, users.user_name FROM cart INNER JOIN products ON cart.product_id = products.product_id AND cart.shop_id = products.user_id INNER JOIN users ON cart.shop_id = users.id_user WHERE cart.cart_id = ? ', [cartId], (err, result) => {
-    if (err) {
-      res.status(500).json(err)
-    }
-    else {
-      res.status(200).json(result)
-    }
-  })
-})
-
-
-
-// STORE TO CART
-router.post('/cart', (req, res) => {
-  const { productId, shopId, userId, quantity, price } = req.body
-  connection.execute('SELECT cart_id FROM cart WHERE product_id = ? AND user_id = ? AND shop_id = ?', [productId, userId, shopId], (err, result) => {
-    if (err) {
-      return res.status(500).json(err)
-    }
-    else {
-      if (result.length > 0) {
-        console.log(result)
-        connection.execute('UPDATE cart SET cart_quantity = ?, cart_total_price = ? WHERE cart_id = ?', [quantity, quantity * price, result[0].cart_id], (errUpdate, resultUpdate) => {
-          if (errUpdate) {
-
-            return res.status(500).json(errUpdate)
+      if (resultSelectProductId.length <= 0) {
+        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [1, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
+          if (err) {
+            res.status(400).json(err)
           }
           else {
-            return res.status(200).json(resultUpdate)
+            res.status(200).json(result)
           }
         })
       }
       else {
-        connection.execute('INSERT INTO cart (product_id, user_id, shop_id, cart_quantity, cart_total_price) VALUES (?, ?, ?, ?, ?)', [productId, userId, shopId, quantity, quantity * price], (errInsert, resultInsert) => {
-          if (errInsert) {
-            return res.status(500).json(errInsert)
+        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
+          if (err) {
+            res.status(400).json(err)
           }
           else {
-            return res.status(200).json(resultInsert)
+            res.status(200).json(result)
           }
         })
       }
     }
   })
-})
+}
 
 
+const getAllProducts = (req, res) => {
+  const shopId = req.params.shopId
 
+  const query = `
+  SELECT 
+    products.product_thumbnail, 
+    products.product_id, 
+    products.product_name, 
+    products.product_price, 
+    products.product_stock, 
+    products.product_sold,
+    category.category_name,
+    shops.shop_id,
+    shops.shop_name,
+    shops.shop_address,
+    shops.city_id,
+    shops.shop_contact,
+    cities.city_name
+  FROM
+    products
+  INNER JOIN
+    shops ON products.shop_id = shops.shop_id
+  AND INNER JOIN
+    cities ON shops.city_id = cities.city_id
+  AND INNER JOIN
+    category ON products.category_id = category.category_id
+`;
 
-// DELETE CART
-router.delete('/cart/:cartId', (req, res) => {
-  const cartId = req.params.cartId
-  connection.execute('DELETE FROM cart WHERE cart_id = ?', [cartId], (err, result) => {
+  connection.execute(query, (err, result) => {
     if (err) {
-      res.status(500).json(err)
+      res.status(500).json({ "isError": true, "error": err })
     }
     else {
-      res.status(200).json(result)
+      if (result.length > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
     }
   })
-})
+}
 
+const getDetailProduct = (req, res) => {
+  const query = `
+  SELECT 
+    products.*,
+    category.*
+  FROM
+    products
+  INNER JOIN
+    category ON products.category_id = category.category_id
+  WHERE
+    AND products.product_id = ?
+`;
 
-
-
-// UPDATE CART
-router.patch('/cart/:cartId', (req, res) => {
-  const cartId = req.params.cartId
-  const { quantity, price } = req.body
-  connection.execute('UPDATE cart SET cart_quantity = ?, cart_total_price = ? WHERE cart_id = ?', [quantity, quantity * price, cartId], (err, result) => {
+  const productId = req.params.productId
+  connection.execute(query, [productId], (err, result) => {
     if (err) {
-      res.status(500).json(err)
+      res.status(500).json({ "isError": true, "error": err })
     }
     else {
-      res.status(200).json(result)
+      if (result.length > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
     }
   })
-})
+}
+
+const updateProduct = (req, res) => {
+  const { categoryId, name, price, thumbnail, description, stock } = req.body
+  const productId = req.params.productId
+  connection.execute('UPDATE `products` SET `category_id` = ?, `product_name` = ?, `product_price` = ?,`product_thumbnail` = ?,`product_description` = ?, `product_stock` = ? WHERE `user_id` = ? AND `product_id` = ?',
+    [categoryId, name, price, thumbnail, description, stock, req.session.userId, productId], (err, result) => {
+      if (err) {
+        res.status(500).json({ "isError": true, "error": err })
+      }
+      else {
+        if (result.affectedRows > 0) {
+          res.status(200).json({ "isError": false, "data": result })
+        }
+        else {
+          res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+        }
+      }
+    })
+}
 
 
+const deleteProduct = (req, res) => {
+  const productId = req.params.productId
+  connection.execute('DELETE FROM products WHERE product_id = ? AND user_id = ? ', [productId, req.session.userId], (err, result) => {
+    if (err) {
+      res.status(500).json({ "isError": true, "error": err })
+    }
+    else {
+      if (result.affectedRows > 0) {
+        res.status(200).json({ "isError": false, "data": result })
+      }
+      else {
+        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
+      }
+    }
+  })
+}
 
-// CHECKOUT AND SEND EMAIL
-router.post('/checkout/:shopId/:userId', (req, res) => {
+
+const checkoutAndSendEmail = (req, res) => {
   const shopId = req.params.shopId
   const userId = req.params.userId
   const { paymentMethod } = req.body
@@ -261,7 +268,7 @@ router.post('/checkout/:shopId/:userId', (req, res) => {
       )
     }
   })
-})
+}
 
 
-module.exports = router
+module.exports = { createProduct, getAllProducts, getDetailProduct, updateProduct, deleteProduct, checkoutAndSendEmail }

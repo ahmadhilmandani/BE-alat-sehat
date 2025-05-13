@@ -84,4 +84,4 @@ const updateCart = (req, res) => {
   })
 }
 
-module.exports = {getCart, getDetailCart, storeProductToCart, deleteProductToCart, updateCart }
+module.exports = { getCart, getDetailCart, storeProductToCart, deleteProductToCart, updateCart }

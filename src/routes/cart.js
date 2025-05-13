@@ -22,7 +22,6 @@ router.delete('/:cartId', deleteProductToCart)
 
 
 
-
 // UPDATE CART
 router.patch('/:cartId', updateCart)
 

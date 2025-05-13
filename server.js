@@ -21,6 +21,7 @@ const session = require('express-session');
 // }));
 
 const authRoute = require('./src/routes/auth')
+const userRoute = require('./src/routes/user')
 const productRoute = require('./src/routes/product')
 const cartRoute = require('./src/routes/cart')
 
@@ -38,6 +39,7 @@ app.use((req, res, next) => {
 })
 
 app.use('/api/auth', authRoute)
+app.use('/api/user', userRoute)
 app.use('/api/product', productRoute)
 app.use('/api/cart', cartRoute)
 

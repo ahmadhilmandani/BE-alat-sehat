@@ -5,7 +5,7 @@ const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 const register = (req, res) => {
   const { email, name, password, confPassword, dateBirth, addreas, cityId, contact, paypalId } = req.body
-  const role = req.params.role
+  const role = req.params.role || user
 
   // CONFIRM PASSWORD
   if (password != confPassword)
@@ -20,7 +20,23 @@ const register = (req, res) => {
     // IF HASH NO PROB
     if (!errHash) {
       // INSERT TO DB
-      connection.execute('INSERT INTO `users` (user_name, user_email , user_password, user_date_birth, user_address, city_id, user_contact, user_paypal_id, user_role, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, email, hash, dateBirth, addreas, cityId, contact, paypalId, role, 0], (errSql, result) => {
+      const query = `
+      INSERT INTO users (
+          user_name,
+          user_email,
+          user_password,
+          user_date_birth,
+          user_address,
+          city_id,
+          user_contact,
+          user_paypal_id,
+          user_role,
+          is_verified
+      ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )`
+
+      connection.execute(query, [name, email, hash, dateBirth, addreas, cityId, contact, paypalId, role, 0], (errSql, result) => {
         // IF ERROR
         if (errSql) {
           // IF ERROR IS DUPLICATE EMAIL

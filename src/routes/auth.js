@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router()
 
-const { register, login, logout } = require('../controllers/authController.js')
+const { register, login, softDeleteUser, logout } = require('../controllers/authController.js')
 
 
 // REGISTER
-router.post('/register/:role?', register)
+router.post('/register', register)
+
+
+// DELETE
+router.delete('/', softDeleteUser)
 
 
 // LOGIN

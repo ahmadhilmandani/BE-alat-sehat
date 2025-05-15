@@ -1,26 +1,32 @@
 const bcrypt = require('bcrypt')
 
-const connection = require('../config/database')
+const connectDb = require('../config/database')
 const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-const register = (req, res) => {
-  const { email, name, password, confPassword, dateBirth, addreas, cityId, contact, paypalId } = req.body
-  const role = req.params.role || user
+const DEFAULT_ROLE = 1
 
-  // CONFIRM PASSWORD
-  if (password != confPassword)
-    return res.status(400).send({ "isError": true, "message": "Password tidak sama" })
+const register = async (req, res) => {
+  const connection = await connectDb();
 
-  // CHECK EMAIL FORMAT
-  if (emailRegex.test(email) == false)
-    return res.status(400).send({ "isError": true, "message": "Masukan format email yang benar" })
+  try {
+    const { email, name, password, confPassword, dateBirth, addreas, cityId, contact, paypalId } = req.body
+    const role = req.body.role || DEFAULT_ROLE
 
-  // HASHING PASSWORD
-  bcrypt.hash(password, 10, (errHash, hash) => {
-    // IF HASH NO PROB
-    if (!errHash) {
-      // INSERT TO DB
-      const query = `
+    // CONFIRM PASSWORD
+    if (password != confPassword)
+      return res.status(400).send({ "isError": true, "message": "Password tidak sama" })
+
+    // CHECK EMAIL FORMAT
+    if (emailRegex.test(email) == false)
+      return res.status(400).send({ "isError": true, "message": "Masukan format email yang benar" })
+
+    // HASHING PASSWORD
+    const hash = await bcrypt.hash(password, 10)
+
+    await connection.beginTransaction();
+
+    // INSERT TO DB
+    const queryInsertUser = `
       INSERT INTO users (
           user_name,
           user_email,
@@ -30,46 +36,48 @@ const register = (req, res) => {
           city_id,
           user_contact,
           user_paypal_id,
-          user_role,
-          is_verified
+          created_at
       ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-      )`
+          ?, ?, ?, ?, ?, ?, ?, ?, ?
+       )`
+    const [resInsertUsers] = await connection.execute(queryInsertUser, [name, email, hash, dateBirth, addreas, cityId, contact, paypalId, new Date()])
 
-      connection.execute(query, [name, email, hash, dateBirth, addreas, cityId, contact, paypalId, role, 0], (errSql, result) => {
-        // IF ERROR
-        if (errSql) {
-          // IF ERROR IS DUPLICATE EMAIL
-          if (errSql.code == "ER_DUP_ENTRY") {
-            return res.status(409).send(
-              { "isError": true, "message": "Email sudah terdaftar", "error": errSql }
-            )
-          }
-          // IF THE ERROR NOT DUNPLICATE
-          else {
-            return res.status(400).send(
-              { "isError": true, "error": errSql }
-            )
-          }
-        }
-        // IF IT'S ALL GOOD
-        else {
-          return res.status(201).send({
-            "isError": false,
-            "data": result
-          })
+
+    const queryInsertUserRole = `
+      INSERT INTO user_roles (
+        user_id,
+        role_id
+      ) VALUES (
+       ?,
+       ?
+      )
+    `
+    await connection.execute(queryInsertUserRole, [resInsertUsers.insertId, role])
+
+    await connection.commit()
+
+    return res.status(201).send({
+      'is_error': false,
+      'msg': 'Terima Kasih Sudah Melakukan regristrasi! Selamat Datang!',
+    })
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback()
+
+      return res.status(500).send({
+        'is_error': true,
+        'msg': 'Gagal Silahkan Ulangi Kembali atau Mohon Tunggu!',
+        'traceback_err': {
+          message: error.message || error,
+          stack: error.stack || error,
+          name: error.name || error,
         }
       })
     }
-    // IF HASHING ERROR
-    else {
-      return res.status(500).json({
-        "isError": true,
-        "error": errHash
-      })
-    }
-  })
+  }
 }
+
 
 const login = (req, res) => {
   const { email, password } = req.body
@@ -110,6 +118,58 @@ const login = (req, res) => {
   })
 }
 
+
+const softDeleteUser = async (req, res) => {
+  const connection = await connectDb();
+  try {
+    const { userId } = req.body
+
+    if (!userId) {
+      throw "Harus Menyertakan ID user"
+    }
+
+    const querySoftDelete = `
+      UPDATE
+          users
+      SET
+        is_delete = 1
+      WHERE
+        user_id = ?
+    `
+
+    await connection.execute(querySoftDelete, [userId])
+
+    await connection.commit()
+
+
+    return res.status(200).send({
+      'is_error': false,
+      'msg': 'Berhasil Menghapus Akun!',
+    })
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback()
+
+      return res.status(500).send({
+        'is_error': true,
+        'msg': 'Gagal Silahkan Ulangi Kembali atau Mohon Tunggu!',
+        'traceback_err': {
+          message: error.message || error,
+          stack: error.stack || error,
+          name: error.name || error,
+        }
+      })
+    }
+  }
+  // finally {
+  //   if (connection) {
+  //     await connection.end()
+  //   }
+  // }
+}
+
+
 const logout = (req, res) => {
   delete req.session.userId
   delete req.session.role
@@ -117,4 +177,4 @@ const logout = (req, res) => {
   res.status(200).json({ "message": "Anda telah logout." });
 }
 
-module.exports = { register, login, logout }
+module.exports = { register, login, softDeleteUser, logout }

@@ -1,6 +1,10 @@
 const bcrypt = require('bcrypt')
 
 const connectDb = require('../config/database')
+
+const jwt = require('jsonwebtoken')
+const authConfig = require('../config/authConfig')
+
 const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 const DEFAULT_ROLE = 1
@@ -79,43 +83,76 @@ const register = async (req, res) => {
 }
 
 
-const login = (req, res) => {
-  const { email, password } = req.body
+const login = async (req, res) => {
+  const connection = await connectDb()
+  try {
+    const { email, password } = req.body
+  
+    // CHECKING THE EMAIL FORMAT IS VALID 
+    if (emailRegex.test(email) == false)
+      return res.status(400).send({ "isError": true, "message": "Masukan format email yang benar" })
+  
+    // GET THE EMAIL
+    const queryUser = `
+      SELECT
+        u.*, r.role_name
+      FROM
+        users AS u
+      INNER JOIN
+        user_roles AS ur
+      ON
+        u.user_id = ur.user_id
+      INNER JOIN
+        roles AS r
+      ON
+        ur.role_id = r.role_id
+      WHERE
+        u.user_email = ?
+    `
 
-  // CHECKING THE EMAIL FORMAT IS VALID 
-  if (emailRegex.test(email) == false)
-    return res.status(400).send({ "isError": true, "message": "Masukan format email yang benar" })
 
-  // GET THE EMAIL
-  connection.execute('SELECT * FROM `users` WHERE `user_email` = ? LIMIT 1', [email], (errEmail, resultEmail) => {
-    // IF ERROR
-    if (errEmail) {
-      console.log(errEmail)
-      res.json(errEmail)
-    }
-    // IF NOT ERROR
-    else {
-      // COMPARING THE PASSWORD
-      bcrypt.compare(password, resultEmail[0].user_password, (err, result) => {
-        // IF THE EMAIL GOOD, PASSWORD GOOD
-        if (result) {
-          // SET SESSION USER ID
-          req.session.userId = resultEmail[0].id_user;
-          res.send([
-            {
-              "id_user": resultEmail[0].id_user,
-              "email": resultEmail[0].user_email,
-              "name": resultEmail[0].user_name,
-              "role": resultEmail[0].user_role,
-            }
-          ])
+    const [resultEmail] = await connection.execute(queryUser, [email])
+    console.log(resultEmail[0])
+    // COMPARING THE PASSWORD
+    const resultPass = await bcrypt.compare(password, resultEmail[0].user_password)
+  
+    if (resultPass) {
+      // SET SESSION USER ID
+      // req.session.userId = resultEmail[0].id_user;
+      const token = jwt.sign({ id: resultEmail[0].user_id }, authConfig.secret, {
+        expiresIn: 86400
+      })
+
+      let roles = []
+      for (let index = 0; index < resultEmail.length; index++) {
+        roles.push(resultEmail[index].role_name)
+      }
+
+      return res.status(200).send([
+        {
+          "id_user": resultEmail[0].user_id,
+          "email": resultEmail[0].user_email,
+          "name": resultEmail[0].user_name,
+          'token': token,
+          "roles": roles
         }
-        else {
-          res.json(err)
+      ])
+    }
+  } catch (error) {
+    if (connection) {
+      await connection.rollback()
+
+      return res.status(500).send({
+        'is_error': true,
+        'msg': 'Gagal Silahkan Ulangi Kembali atau Mohon Tunggu!',
+        'traceback_err': {
+          message: error.message || error,
+          stack: error.stack || error,
+          name: error.name || error,
         }
       })
     }
-  })
+  }
 }
 
 

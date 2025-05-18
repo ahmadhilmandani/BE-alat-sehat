@@ -24,6 +24,9 @@ const authRoute = require('./src/routes/auth')
 const userRoute = require('./src/routes/user')
 const productRoute = require('./src/routes/product')
 const cartRoute = require('./src/routes/cart')
+const { errorMiddleware } = require('./src/middleware/errorMiddleware')
+
+const { verifyToken } = require('./src/middleware/authMiddleware')
 
 const corsOptions = {
   origin: "http://localhost:5173"
@@ -31,7 +34,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 app.use(express.json())
-app.use(express.urlencoded({extended: true}))
+app.use(express.urlencoded({ extended: true }))
 
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`)
@@ -42,6 +45,7 @@ app.use('/api/auth', authRoute)
 app.use('/api/user', userRoute)
 app.use('/api/product', productRoute)
 app.use('/api/cart', cartRoute)
+app.use(errorMiddleware)
 
 app.listen(PORT, () => {
   console.log(`listeing on port: ${PORT}`)

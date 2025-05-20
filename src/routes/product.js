@@ -1,27 +1,27 @@
 const express = require('express');
 const router = express.Router()
+const { verifyToken, checkIsMerchantAdmin } = require('../middleware/authMiddleware')
 
-
-const { createProduct, getAllProducts, getDetailProduct, updateProduct, deleteProduct, checkoutAndSendEmail } = require('../controllers/productController')
+const { create, getAll, getDetail, updateProductController, deleteProductController, checkoutAndSendEmail, softDeleteProductController } = require('../controllers/productController')
 
 // CREATE PRODUCT
-router.post('/', createProduct)
+router.post('/', verifyToken, checkIsMerchantAdmin, create)
 
 
 // GET ALL PRODUCT
-router.get('/:shopId', getAllProducts)
+router.get('/', getAll)
 
 
 // GET DETAIL PRODUCT
-router.get('/:productId', getDetailProduct)
+router.get('/:productId', getDetail)
 
 
 // UPDATE PRODUCT
-router.patch('/:productId', updateProduct)
+router.patch('/:productId', updateProductController)
 
 
 // DELETE PRODUCT
-router.delete('/:productId', deleteProduct)
+router.delete('/:productId', verifyToken, checkIsMerchantAdmin, softDeleteProductController)
 
 
 // CHECKOUT AND SEND EMAIL

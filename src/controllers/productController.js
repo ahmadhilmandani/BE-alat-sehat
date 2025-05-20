@@ -1,151 +1,95 @@
 
-const connection = require('../config/database');
+const connectDb = require('../config/database');
 const ejs = require('ejs')
 const path = require('path')
 const pdf = require('html-pdf')
 const nodemailer = require('nodemailer')
+const { getAllProducts, createProducts, updateProduct, getProductById, hardDeleteProduct, softDeleteProduct } = require('../repositories/productRepositoreis')
 
+const create = async (req, res, next) => {
+  const connection = await connectDb()
 
-const createProduct = (req, res) => {
-  const { categoryId, name, price, thumbnail, description, stock, shopId } = req.body
+  try {
+    const { shop_id, category_id, product_name, product_price, product_thumbnail, product_description, product_stock } = req.body
 
-  connection.execute('SELECT `product_id` FROM `products` WHERE `user_id` = ? ORDER BY `product_id` DESC LIMIT 1', [shopId], (errSelectProductId, resultSelectProductId) => {
-    if (errSelectProductId) {
-      res.status(400).json(errSelectProductId)
-    }
-    else {
-      if (resultSelectProductId.length <= 0) {
-        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [1, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
-          if (err) {
-            res.status(400).json(err)
-          }
-          else {
-            res.status(200).json(result)
-          }
-        })
-      }
-      else {
-        connection.execute('INSERT INTO `products` (`product_id`,`user_id`, `category_id`, `product_name`,`product_price`,`product_thumbnail`, `product_description`, `product_stock`,`product_sold`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [++resultSelectProductId[0].product_id, shopId, categoryId, name, price, thumbnail, description, stock, 0], (err, result) => {
-          if (err) {
-            res.status(400).json(err)
-          }
-          else {
-            res.status(200).json(result)
-          }
-        })
-      }
-    }
-  })
+    const products = await createProducts(shop_id, category_id, product_name, product_price, product_thumbnail, product_description, product_stock, 0, new Date())
+
+    await connection.commit()
+    return res.status(201).send({ 'is_error': false, 'msg': 'Berhasil Menambahkan produk', 'id': products.insertId })
+
+  } catch (error) {
+    next(error)
+  }
+
 }
 
 
-const getAllProducts = (req, res) => {
-  const shopId = req.params.shopId
+const getAll = async (req, res, next) => {
+  try {
 
-  const query = `
-  SELECT 
-    products.product_thumbnail, 
-    products.product_id, 
-    products.product_name, 
-    products.product_price, 
-    products.product_stock, 
-    products.product_sold,
-    category.category_name,
-    shops.shop_id,
-    shops.shop_name,
-    shops.shop_address,
-    shops.city_id,
-    shops.shop_contact,
-    cities.city_name
-  FROM
-    products
-  INNER JOIN
-    shops ON products.shop_id = shops.shop_id
-  AND INNER JOIN
-    cities ON shops.city_id = cities.city_id
-  AND INNER JOIN
-    category ON products.category_id = category.category_id
-`;
+    const products = await getAllProducts()
+    return res.status(200).send({ 'is_error': false, 'data': products })
 
-  connection.execute(query, (err, result) => {
-    if (err) {
-      res.status(500).json({ "isError": true, "error": err })
-    }
-    else {
-      if (result.length > 0) {
-        res.status(200).json({ "isError": false, "data": result })
-      }
-      else {
-        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
-      }
-    }
-  })
-}
-
-const getDetailProduct = (req, res) => {
-  const query = `
-  SELECT 
-    products.*,
-    category.*
-  FROM
-    products
-  INNER JOIN
-    category ON products.category_id = category.category_id
-  WHERE
-    AND products.product_id = ?
-`;
-
-  const productId = req.params.productId
-  connection.execute(query, [productId], (err, result) => {
-    if (err) {
-      res.status(500).json({ "isError": true, "error": err })
-    }
-    else {
-      if (result.length > 0) {
-        res.status(200).json({ "isError": false, "data": result })
-      }
-      else {
-        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
-      }
-    }
-  })
-}
-
-const updateProduct = (req, res) => {
-  const { categoryId, name, price, thumbnail, description, stock } = req.body
-  const productId = req.params.productId
-  connection.execute('UPDATE `products` SET `category_id` = ?, `product_name` = ?, `product_price` = ?,`product_thumbnail` = ?,`product_description` = ?, `product_stock` = ? WHERE `user_id` = ? AND `product_id` = ?',
-    [categoryId, name, price, thumbnail, description, stock, req.session.userId, productId], (err, result) => {
-      if (err) {
-        res.status(500).json({ "isError": true, "error": err })
-      }
-      else {
-        if (result.affectedRows > 0) {
-          res.status(200).json({ "isError": false, "data": result })
-        }
-        else {
-          res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
-        }
-      }
-    })
+  } catch (error) {
+    next(error)
+  }
 }
 
 
-const deleteProduct = (req, res) => {
-  const productId = req.params.productId
-  connection.execute('DELETE FROM products WHERE product_id = ? AND user_id = ? ', [productId, req.session.userId], (err, result) => {
-    if (err) {
-      res.status(500).json({ "isError": true, "error": err })
-    }
-    else {
-      if (result.affectedRows > 0) {
-        res.status(200).json({ "isError": false, "data": result })
-      }
-      else {
-        res.status(404).json({ "isError": true, "message": "Data tidak ditemukan" })
-      }
-    }
-  })
+const getDetail = async (req, res, next) => {
+  try {
+    const { productId } = req.params
+
+    const product = await getProductById(productId)
+    return res.status(200).send({ 'is_error': false, 'data': product })
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+
+const updateProductController = async (req, res) => {
+  const connection = await connectDb()
+  
+  try {
+    const { category_id, product_name, product_price, product_thumbnail, product_description, product_stock, product_sold } = req.body
+    const productId = req.params.productId
+
+    await updateProduct(productId, category_id, product_name, product_price, product_thumbnail, product_description, product_stock, product_sold)
+
+    await connection.commit()
+    return res.status(200).send({ 'is_error': false, 'msg': 'Berhasil Update Product' })
+    
+  } catch (error) {
+    next(error)
+    
+  }
+}
+
+
+const deleteProductController = async (req, res, next) => {
+  try {
+
+    const { productId } = req.params
+    await hardDeleteProduct(productId)
+    return res.status(200).send({ 'is_error': false, 'msg': 'berhasil hapus' })
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+const softDeleteProductController = async (req, res, next) => {
+  try {
+
+    const { productId } = req.params
+    await softDeleteProduct(productId)
+    return res.status(200).send({ 'is_error': false, 'msg': 'berhasil hapus' })
+
+  } catch (error) {
+    next(error)
+  }
 }
 
 
@@ -271,4 +215,4 @@ const checkoutAndSendEmail = (req, res) => {
 }
 
 
-module.exports = { createProduct, getAllProducts, getDetailProduct, updateProduct, deleteProduct, checkoutAndSendEmail }
+module.exports = { create, getAll, getDetail, updateProductController, deleteProductController, checkoutAndSendEmail, softDeleteProductController }

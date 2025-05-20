@@ -33,12 +33,13 @@ const verifyToken = async (req, res, next) => {
         u.user_id = ?
     `
 
-    const [result] = await connection.execute(queryUser, [decodeToken.user_id])
+    const [result] = await connection.execute(queryUser, [decodeToken.id])
     req.user = result
 
     next()
   } catch (error) {
     if (connection) {
+      console.log(error)
       res.status(401).send({ 'msg': 'Tidak memiliki Otoritas' })
     }
 
@@ -66,7 +67,13 @@ const checkIsMerchant = async (req, res, next) => {
 }
 
 const checkIsMerchantAdmin = async (req, res, next) => {
-  const isMerchantAdmin = req.user.roles.includes(ROLE_MERCHANT_ADMIN)
+  let isMerchantAdmin = false
+  for (const row of req.user) {
+    if (row.role_name === ROLE_MERCHANT_ADMIN) {
+      isMerchantAdmin = true
+      break;
+    }
+  }
 
   if (isMerchantAdmin) {
     next()
